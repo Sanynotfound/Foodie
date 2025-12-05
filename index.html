@@ -1,0 +1,457 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>今天吃点啥？</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+SC:wght@400;500;700;900&display=swap" rel="stylesheet">
+    <script src="https://unpkg.com/lucide@latest"></script>
+    <style>
+        body {
+            font-family: 'Noto Sans SC', sans-serif;
+            background-color: #FFF8F0;
+            color: #4A4A4A;
+        }
+
+        /* 隐藏滚动条但保留功能 */
+        .no-scrollbar::-webkit-scrollbar {
+            display: none;
+        }
+        .no-scrollbar {
+            -ms-overflow-style: none;
+            scrollbar-width: none;
+        }
+
+        /* 动画定义 */
+        @keyframes slide-up {
+            from { transform: translateY(20px); opacity: 0; }
+            to { transform: translateY(0); opacity: 1; }
+        }
+        @keyframes pop {
+            0% { transform: scale(0.95); opacity: 0; }
+            50% { transform: scale(1.02); }
+            100% { transform: scale(1); opacity: 1; }
+        }
+        @keyframes float {
+            0% { transform: translateY(0px) rotate(0deg); }
+            50% { transform: translateY(-10px) rotate(5deg); }
+            100% { transform: translateY(0px) rotate(0deg); }
+        }
+
+        .animate-slide-up { animation: slide-up 0.5s cubic-bezier(0.16, 1, 0.3, 1) forwards; }
+        .animate-pop { animation: pop 0.4s cubic-bezier(0.34, 1.56, 0.64, 1) forwards; }
+        .animate-float { animation: float 8s ease-in-out infinite; }
+
+        /* 卡片交互 */
+        .food-card {
+            transition: all 0.4s cubic-bezier(0.34, 1.56, 0.64, 1);
+        }
+        .food-card:hover {
+            transform: translateY(-5px);
+            box-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.1), 0 10px 10px -5px rgba(0, 0, 0, 0.04);
+        }
+        .food-card:active {
+            transform: scale(0.98);
+        }
+
+        /* 艺术化 Icon 样式：旋转 + 渐变隐藏 */
+        .art-icon {
+            position: absolute;
+            right: -2rem;
+            bottom: -3rem;
+            font-size: 10rem;
+            line-height: 1;
+            transform: rotate(15deg);
+            opacity: 0.25;
+            pointer-events: none;
+            user-select: none;
+            transition: all 0.5s ease-out;
+            /* 关键：使用 mask-image 让 icon 底部渐变消失，融合背景 */
+            -webkit-mask-image: linear-gradient(to top left, black 40%, transparent 90%);
+            mask-image: linear-gradient(to top left, black 40%, transparent 90%);
+            filter: grayscale(20%);
+        }
+
+        .group:hover .art-icon {
+            transform: rotate(0deg) scale(1.1) translate(-10px, -10px);
+            opacity: 0.35;
+            filter: grayscale(0%);
+        }
+
+        /* 动态背景纹理 */
+        .bg-pattern {
+            background-image: 
+                radial-gradient(#F59E0B 1px, transparent 1px), 
+                radial-gradient(#EF4444 1px, transparent 1px);
+            background-size: 30px 30px;
+            background-position: 0 0, 15px 15px;
+            opacity: 0.08;
+        }
+    </style>
+</head>
+<body class="h-screen w-full flex items-center justify-center relative overflow-hidden bg-orange-50/50">
+
+    <!-- 动态背景装饰 -->
+    <div class="absolute inset-0 bg-pattern z-0 pointer-events-none"></div>
+    <div class="absolute top-[5%] left-[5%] text-[10rem] opacity-5 animate-float blur-sm" style="animation-delay: 0s;">🥨</div>
+    <div class="absolute bottom-[10%] right-[5%] text-[12rem] opacity-5 animate-float blur-sm" style="animation-delay: 2s;">🥑</div>
+    <div class="absolute top-[20%] right-[20%] text-6xl opacity-5 animate-float" style="animation-delay: 4s;">🥚</div>
+
+    <!-- 主容器：从 max-w-md 改为 max-w-5xl 以适配桌面端 -->
+    <main id="app" class="relative z-10 w-full max-w-md md:max-w-5xl h-[100dvh] md:h-[85vh] flex flex-col md:rounded-[2.5rem] md:shadow-2xl md:border md:border-white/60 overflow-hidden bg-white/70 backdrop-blur-xl transition-all duration-500">
+        
+        <!-- 顶部导航栏 -->
+        <header class="pt-8 pb-4 px-6 md:px-10 flex justify-between items-center bg-white/50 backdrop-blur-sm sticky top-0 z-20 border-b border-white/50">
+            <div>
+                <p class="text-xs font-bold text-orange-600 uppercase tracking-widest mb-1 flex items-center gap-1">
+                    <i data-lucide="map-pin" class="w-3 h-3"></i> 深圳
+                </p>
+                <h1 class="text-2xl md:text-3xl font-black text-slate-800 tracking-tight flex items-center gap-2">
+                    <span id="greeting">Hi, 饭点到了</span> 
+                    <span class="animate-bounce">👋</span>
+                </h1>
+            </div>
+            <div class="flex items-center gap-3">
+                 <div class="hidden md:flex items-center gap-2 px-3 py-1 bg-orange-100/50 rounded-full text-xs text-orange-700 font-medium">
+                    <i data-lucide="database" class="w-3 h-3"></i>
+                    <span>已收录 120+ 美食</span>
+                </div>
+                <div class="bg-white border border-slate-200 px-4 py-2 rounded-full shadow-sm flex items-center gap-2">
+                    <i data-lucide="clock" class="w-3.5 h-3.5 text-orange-500"></i>
+                    <span id="current-time" class="text-sm font-mono font-bold text-slate-600">12:00</span>
+                </div>
+            </div>
+        </header>
+
+        <!-- 首页视图 -->
+        <div id="home-view" class="flex-1 overflow-y-auto no-scrollbar p-6 md:p-10 flex flex-col gap-6 animate-slide-up">
+            
+            <!-- 引导文案：桌面端更宽 -->
+            <div class="bg-gradient-to-r from-orange-100 to-orange-50 p-5 rounded-2xl border border-orange-200/50 flex items-center gap-4 shadow-sm">
+                <div class="bg-orange-500 text-white p-3 rounded-xl shadow-lg shadow-orange-200 shrink-0 transform rotate-3">
+                    <i data-lucide="sparkles" class="w-6 h-6"></i>
+                </div>
+                <div>
+                    <h3 class="font-bold text-orange-900 text-base md:text-lg">不知道吃什么？</h3>
+                    <p class="text-orange-800/80 text-sm mt-0.5">专治选择困难症，点击下方卡片，让命运决定你的下一餐。</p>
+                </div>
+            </div>
+
+            <!-- 核心功能区 - 响应式 Bento Grid -->
+            <!-- 手机端：2列，最后一行通栏 -->
+            <!-- 桌面端 (md)：3列并排 -->
+            <div class="grid grid-cols-2 md:grid-cols-3 gap-4 md:gap-6 flex-1 content-start">
+                
+                <!-- 1. 工作餐 -->
+                <!-- 手机: col-span-1, 桌面: col-span-1 -->
+                <button onclick="generate('work_meal')" class="food-card group relative overflow-hidden bg-gradient-to-br from-amber-400 to-orange-500 p-6 rounded-[2rem] shadow-xl shadow-orange-200/50 text-left min-h-[12rem] md:h-full flex flex-col justify-between border border-white/20">
+                    <!-- 艺术化 Icon -->
+                    <div class="art-icon">🍱</div>
+                    
+                    <div class="relative z-10">
+                        <div class="bg-white/20 w-fit px-3 py-1 rounded-lg backdrop-blur-md border border-white/30 text-white text-xs font-bold mb-3 shadow-inner">
+                            🚀 快速回血
+                        </div>
+                        <h2 class="text-3xl md:text-4xl font-black text-white leading-tight drop-shadow-sm">工作餐<br><span class="opacity-90 text-2xl md:text-3xl">凑合吃</span></h2>
+                    </div>
+                    
+                    <div class="relative z-10 mt-4">
+                        <p class="text-orange-50 text-xs md:text-sm font-medium leading-relaxed opacity-90 max-w-[70%]">
+                            猪脚饭 · 麦当劳 · 螺蛳粉
+                        </p>
+                    </div>
+                </button>
+
+                <!-- 2. 下午茶 -->
+                <!-- 手机: col-span-1, 桌面: col-span-1 -->
+                <button onclick="generate('drink')" class="food-card group relative overflow-hidden bg-gradient-to-br from-pink-400 to-rose-500 p-6 rounded-[2rem] shadow-xl shadow-pink-200/50 text-left min-h-[12rem] md:h-full flex flex-col justify-between border border-white/20">
+                    <!-- 艺术化 Icon -->
+                    <div class="art-icon">🧋</div>
+
+                    <div class="relative z-10">
+                        <div class="bg-white/20 w-fit px-3 py-1 rounded-lg backdrop-blur-md border border-white/30 text-white text-xs font-bold mb-3 shadow-inner">
+                            🥤 摸鱼时刻
+                        </div>
+                        <h2 class="text-3xl md:text-4xl font-black text-white leading-tight drop-shadow-sm">下午茶<br><span class="opacity-90 text-2xl md:text-3xl">整一杯</span></h2>
+                    </div>
+
+                    <div class="relative z-10 mt-4">
+                        <p class="text-pink-50 text-xs md:text-sm font-medium leading-relaxed opacity-90 max-w-[70%]">
+                            奶茶 · 冰美式 · 糖水
+                        </p>
+                    </div>
+                </button>
+
+                <!-- 3. 吃顿好的 -->
+                <!-- 手机: col-span-2 (通栏), 桌面: col-span-1 (恢复并排) -->
+                <button onclick="generate('feast')" class="col-span-2 md:col-span-1 food-card group relative overflow-hidden bg-gradient-to-br from-red-500 to-rose-600 p-6 rounded-[2rem] shadow-xl shadow-red-200/50 text-left min-h-[12rem] md:h-full flex md:flex-col items-center md:items-start justify-between md:justify-between border border-white/20">
+                    <!-- 艺术化 Icon -->
+                    <div class="art-icon text-[12rem] md:text-[10rem] right-[-1rem] md:right-[-2rem] rotate-12">🥩</div>
+                    
+                    <div class="relative z-10 flex flex-col justify-center h-full">
+                        <div class="mb-3">
+                             <span class="bg-yellow-400 text-red-900 text-[10px] md:text-xs font-black px-2 py-1 rounded shadow-sm uppercase tracking-wide">Premium</span>
+                        </div>
+                       
+                        <h2 class="text-3xl md:text-4xl font-black text-white leading-tight drop-shadow-sm">吃顿好的<br><span class="opacity-90 text-2xl md:text-3xl hidden md:inline">犒劳自己</span></h2>
+                        <span class="opacity-90 text-lg md:hidden text-white font-bold mt-1">犒劳自己</span>
+                        
+                        <p class="text-red-100 text-xs md:text-sm mt-2 opacity-80 md:max-w-[80%]">
+                            火锅 · 椰子鸡 · 烧烤
+                        </p>
+                    </div>
+                </button>
+
+            </div>
+
+            <!-- 底部 Credit -->
+            <div class="text-center pt-2">
+                <p class="text-[10px] text-slate-400 font-medium">V3.0 Web Edition · 发芽土豆🌱</p>
+            </div>
+        </div>
+
+        <!-- 结果视图 (Web版：左右分栏) -->
+        <div id="result-view" class="hidden h-full flex flex-col relative z-30 bg-slate-50">
+            
+            <!-- 顶部操作栏 -->
+            <div class="px-6 py-4 flex justify-between items-center bg-white border-b border-slate-100 shadow-sm z-20">
+                <button onclick="resetApp()" class="group flex items-center gap-2 text-slate-500 hover:text-slate-800 transition-colors">
+                    <div class="w-8 h-8 rounded-full bg-slate-100 group-hover:bg-slate-200 flex items-center justify-center transition-colors">
+                        <i data-lucide="arrow-left" class="w-4 h-4"></i>
+                    </div>
+                    <span class="text-sm font-bold">返回选择</span>
+                </button>
+                <span class="text-xs font-bold text-slate-400 uppercase tracking-widest hidden md:block">今日美食推荐</span>
+                <div class="w-10"></div>
+            </div>
+
+            <!-- 结果内容容器：Web端左右布局 -->
+            <div class="flex-1 flex flex-col md:flex-row overflow-hidden animate-pop">
+                
+                <!-- 左侧：视觉冲击区 (Web端占40%) -->
+                <div id="card-header" class="relative h-1/3 md:h-full md:w-5/12 bg-orange-100 flex items-center justify-center overflow-hidden transition-colors duration-500">
+                    <!-- 背景大 Emoji -->
+                    <div id="result-bg-emoji" class="absolute text-[20rem] opacity-20 blur-3xl select-none animate-float">🥘</div>
+                    
+                    <!-- 核心展示 -->
+                    <div class="relative z-10 flex flex-col items-center">
+                        <div class="bg-white/30 backdrop-blur-md p-8 md:p-12 rounded-full border border-white/40 shadow-2xl">
+                            <div id="result-icon" class="text-8xl md:text-9xl drop-shadow-2xl filter transform hover:scale-110 transition-transform duration-300 cursor-pointer">
+                                🥘
+                            </div>
+                        </div>
+                        <span id="result-category" class="mt-6 px-4 py-1.5 bg-black/20 backdrop-blur-md text-white text-xs md:text-sm font-bold rounded-full shadow-lg border border-white/10">
+                            类别
+                        </span>
+                    </div>
+                </div>
+
+                <!-- 右侧：信息与操作区 (Web端占60%) -->
+                <div class="flex-1 bg-white p-8 md:p-12 flex flex-col justify-center relative shadow-[-10px_0_20px_-5px_rgba(0,0,0,0.05)]">
+                    
+                    <div class="max-w-lg mx-auto w-full">
+                        <div class="flex items-center gap-2 mb-4">
+                            <span id="result-tag" class="px-2.5 py-1 bg-slate-100 text-slate-600 text-xs font-bold rounded-md uppercase tracking-wide">
+                                #标签
+                            </span>
+                            <span class="w-1.5 h-1.5 rounded-full bg-green-500"></span>
+                            <span class="text-xs text-slate-400 font-medium">适合今日心情</span>
+                        </div>
+
+                        <h2 id="result-name" class="text-4xl md:text-6xl font-black text-slate-800 mb-6 leading-tight tracking-tight">
+                            菜名占位符
+                        </h2>
+                        
+                        <div class="h-1.5 w-20 bg-gradient-to-r from-orange-400 to-red-400 rounded-full mb-6"></div>
+
+                        <p id="result-desc" class="text-slate-500 text-base md:text-lg leading-relaxed font-medium mb-10">
+                            这里是描述文案，描述这个食物有多好吃，让人食指大动。
+                        </p>
+
+                        <!-- 按钮组：桌面端改为横向排列 -->
+                        <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                            <button onclick="resetApp()" class="w-full bg-white text-slate-700 font-bold py-4 rounded-xl border-2 border-slate-200 hover:border-green-500 hover:text-green-600 hover:bg-green-50 flex items-center justify-center gap-2 transition-all group">
+                                <i data-lucide="check" class="w-5 h-5 text-slate-400 group-hover:text-green-500 transition-colors"></i>
+                                <span>就吃这个！</span>
+                            </button>
+                            
+                            <button id="regen-btn" class="w-full bg-slate-900 text-white font-bold py-4 rounded-xl shadow-lg shadow-slate-300 flex items-center justify-center gap-2 hover:bg-black hover:scale-[1.02] active:scale-[0.98] transition-all">
+                                <i data-lucide="shuffle" class="w-5 h-5"></i>
+                                <span>不行，换一个</span>
+                            </button>
+                        </div>
+                    </div>
+
+                </div>
+
+            </div>
+        </div>
+
+    </main>
+
+    <script>
+        lucide.createIcons();
+
+        // 完整数据源
+        const database = {
+            work_meal: [
+                { name: "隆江猪脚饭", category: "深漂之光", desc: "肥瘦相间，淋上灵魂卤汁，加个鸭腿是对自己最大的宽容。", icon: "🐖", tag: "快餐" },
+                { name: "湘菜小炒肉", category: "下饭神器", desc: "青椒与肉片的完美共舞，汤汁拌饭能狂炫三碗。", icon: "🌶️", tag: "湘菜" },
+                { name: "广式肠粉", category: "经典早餐", desc: "皮薄肉嫩，蛋肉肠加底，淋上酱油简直完美。", icon: "🥢", tag: "粤菜" },
+                { name: "麦当劳", category: "麦门信徒", desc: "1+1随心配或穷鬼套餐，打工人的安全感来源。", icon: "🍟", tag: "快餐" },
+                { name: "螺蛳粉", category: "味蕾炸弹", desc: "虽然臭但吃着香，一定要加炸蛋和鸭掌！", icon: "🍜", tag: "粉面" },
+                { name: "烧鹅/烧鸭饭", category: "广式烧腊", desc: "皮脆肉嫩，酸梅酱解腻，例汤免费喝。", icon: "🦆", tag: "快餐" },
+                { name: "萨莉亚", category: "意式沙县", desc: "肉酱意面+蜗牛，便宜大碗，实现西餐自由。", icon: "🍝", tag: "西餐" },
+                { name: "茶餐厅", category: "港式碟头饭", desc: "滑蛋牛肉饭或叉烧饭，必须配一杯冻柠茶。", icon: "🇭🇰", tag: "简餐" },
+                { name: "肯德基", category: "疯狂星期四", desc: "如果今天是周四，别犹豫，V我50直接冲。", icon: "🍗", tag: "快餐" },
+                { name: "达美乐披萨", category: "接头暗号", desc: "一个人吃9寸薄脆正好，性价比之选。", icon: "🍕", tag: "快餐" },
+                { name: "兰州拉面", category: "中华面食", desc: "一清二白三红四绿，汤清味鲜，十分钟解决。", icon: "🐂", tag: "面食" },
+                { name: "沙县小吃", category: "国民食堂", desc: "拌面扁食，鸭腿饭，不知道吃啥时的保底选择。", icon: "🥣", tag: "快餐" },
+                { name: "麻辣烫", category: "自选快乐", desc: "杨国福或张亮，想吃什么夹什么，记得加包面。", icon: "🔥", tag: "简餐" },
+                { name: "7-11车仔面", category: "便利店之魂", desc: "车仔面加鱼蛋，再来串烧卖，赶时间首选。", icon: "🏪", tag: "简餐" },
+                { name: "真功夫", category: "蒸品", desc: "冬菇滑鸡饭，至少感觉上比较健康，不会上火。", icon: "🍚", tag: "快餐" },
+                { name: "袁记云饺", category: "鲜虾云吞", desc: "现包现煮，皮薄馅大，蘸醋吃很开胃。", icon: "🥟", tag: "面食" },
+                { name: "塔斯汀汉堡", category: "中国汉堡", desc: "手擀饼皮有嚼劲，梅菜扣肉堡yyds。", icon: "🍔", tag: "快餐" },
+                { name: "猪杂汤粉", category: "潮汕风味", desc: "枸杞叶猪杂汤，配一碗腌面，鲜美管饱。", icon: "🐽", tag: "粉面" },
+                { name: "蒙自源", category: "过桥米线", desc: "番茄肥牛米线，汤底浓郁，还能免费续粉。", icon: "🍲", tag: "粉面" },
+                { name: "便利店便当", category: "全家/711", desc: "加热即食，种类多，配一瓶乌龙茶刚刚好。", icon: "🍱", tag: "便当" },
+                { name: "黄焖鸡米饭", category: "国民快餐", desc: "一只鸡的传说，汤汁浓郁，真正的米饭杀手。", icon: "🐔", tag: "快餐" },
+                { name: "SUBWAY", category: "健康减脂", desc: "虽然全是冷的，但是为了身材，忍一忍吧。", icon: "🥪", tag: "轻食" },
+                { name: "海南鸡饭", category: "东南亚之光", desc: "鸡油饭香到失控，鸡肉嫩滑，蘸酱是灵魂。", icon: "🍚", tag: "东南亚" },
+                { name: "咖喱饭", category: "金黄快乐", desc: "日式或泰式都行，浓厚下饭，一碗解决战斗。", icon: "🍛", tag: "快餐" },
+                { name: "越南粉", category: "清爽低负担", desc: "河粉顺滑，汤清味鲜，挤点青柠汁更绝。", icon: "🍜", tag: "东南亚" },
+                { name: "韩式拌饭", category: "一碗全配齐", desc: "蔬菜肉蛋都有，拌上辣酱风味直接拉满。", icon: "🍲", tag: "韩餐" },
+                { name: "生煎/小笼包", category: "点心之王", desc: "底部焦脆，内里爆汁，小心烫嘴。", icon: "🥟", tag: "点心" }
+            ],
+            
+            feast: [
+                { name: "椰子鸡", category: "深圳市菜", desc: "文昌鸡配椰青水，清甜滋润，蘸料必须加沙姜。", icon: "🥥", tag: "火锅" },
+                { name: "潮汕牛肉火锅", category: "潮汕毒药", desc: "现切牛肉，三起三落，沙茶酱是灵魂。", icon: "🥩", tag: "火锅" },
+                { name: "砂锅粥", category: "奢华宵夜", desc: "膏蟹基围虾，鲜掉眉毛，适合晚上慢慢喝。", icon: "🦀", tag: "海鲜" },
+                { name: "光明乳鸽", category: "经典老字号", desc: "一人一只，皮脆肉嫩，吃完齿颊留香。", icon: "🐦", tag: "特色" },
+                { name: "客家酿豆腐", category: "地道客家菜", desc: "去客语或客家王，点满一桌子硬菜。", icon: "🥢", tag: "客家菜" },
+                { name: "酸菜鱼", category: "太二/禄鼎记", desc: "鱼肉滑嫩，酸爽开胃，酸菜比鱼更好吃。", icon: "🐟", tag: "川菜" },
+                { name: "猪肚鸡", category: "养生火锅", desc: "胡椒味浓郁，暖胃暖身，适合吹着空调吃。", icon: "🥘", tag: "火锅" },
+                { name: "木屋烧烤", category: "撸串", desc: "烤生蚝、烤羊排、烤韭菜，啤酒满上。", icon: "🍢", tag: "烧烤" },
+                { name: "重庆火锅", category: "麻辣鲜香", desc: "毛肚鸭肠黄喉，牛油锅底，辣得过瘾。", icon: "🔥", tag: "火锅" },
+                { name: "烤鱼", category: "探鱼/烤匠", desc: "青花椒味最经典，配菜要加宽粉和豆皮。", icon: "🐟", tag: "川菜" },
+                { name: "窑鸡", category: "农家乐风味", desc: "整只鸡撕着吃，肉汁四溢，原始的快乐。", icon: "🐔", tag: "特色" },
+                { name: "回转寿司", category: "日式料理", desc: "寿司郎，盘子叠得高高的，三文鱼腩必点。", icon: "🍣", tag: "日料" },
+                { name: "广式早茶", category: "点都德", desc: "红米肠、虾饺、凤爪，从上午吃到下午。", icon: "🍵", tag: "粤菜" },
+                { name: "日式烧肉", category: "肉食主义", desc: "牛角或牛排，滋滋冒油的五花肉和牛舌。", icon: "🥩", tag: "烤肉" },
+                { name: "牛排西餐", category: "仪式感", desc: "三分熟的菲力，配红酒，偶尔也要装一下。", icon: "🍷", tag: "西餐" },
+                { name: "海鲜自助", category: "扶墙出", desc: "三文鱼、生蚝任吃，吃回本是唯一目标。", icon: "🍤", tag: "自助" },
+                { name: "北京烤鸭", category: "京味", desc: "片皮鸭，面皮包着葱丝黄瓜，一口入魂。", icon: "🦆", tag: "京菜" },
+                { name: "铁板烧", category: "视觉盛宴", desc: "看着厨师做菜，火焰牛肉，炒饭粒粒分明。", icon: "👨‍🍳", tag: "日料" },
+                { name: "顺德菜", category: "厨出凤城", desc: "拆鱼羹、伦教糕，精致的广东味道。", icon: "🐡", tag: "粤菜" },
+                { name: "蒸汽海鲜", category: "原汁原味", desc: "下面煮粥上面蒸海鲜，鲜味完全不流失。", icon: "🦞", tag: "海鲜" },
+                { name: "生腌海鲜", category: "潮汕狠活", desc: "生腌虾、鲍鱼，冰爽鲜辣，极度上头。", icon: "🦐", tag: "潮汕" },
+                { name: "潮汕牛肉烧烤", category: "鲜切+火烤", desc: "湿切牛肉烤到微焦，入口爆汁。", icon: "🥩", tag: "烧烤" },
+                { name: "串串香", category: "麻辣狂欢", desc: "数签签的快乐，蘸干碟灵魂附体。", icon: "🍢", tag: "川菜" },
+                { name: "港式火锅", category: "港味精致", desc: "肥牛拼墨鱼滑，锅底清甜，适合慢慢吃。", icon: "🍲", tag: "火锅" },
+                { name: "东南亚菜", category: "热带风味", desc: "冬阴功、咖椰吐司、炒粉，酸辣清新。", icon: "🥥", tag: "东南亚" },
+                { name: "高端寿司", category: "日料天花板", desc: "主厨板前，蓝鳍金枪鱼入口即化。", icon: "🍣", tag: "日料" },
+                { name: "意大利餐厅", category: "浪漫氛围感", desc: "手工松露意面、战斧牛排，约会必胜。", icon: "🍝", tag: "西餐" },
+                { name: "韩式烤肉", category: "无限续肉", desc: "五花肉、肥牛、蘸芝麻盐，配生菜超满足。", icon: "🥓", tag: "烤肉" },
+                { name: "法餐", category: "仪式与味觉", desc: "鹅肝、蜗牛、红酒慢炖牛肉，超适合纪念日。", icon: "🍷", tag: "西餐" }
+            ],
+
+            drink: [
+                { name: "奈雪的茶", category: "新茶饮", desc: "霸气芝士草莓，必须配一个软欧包。", icon: "🍓", tag: "奶茶" },
+                { name: "喜茶", category: "新茶饮", desc: "多肉葡萄yyds，芝士奶盖是本体。", icon: "🍇", tag: "奶茶" },
+                { name: "瑞幸咖啡", category: "打工续命", desc: "9.9元生椰拿铁，下午困了全靠它。", icon: "☕", tag: "咖啡" },
+                { name: "鸭屎香柠檬茶", category: "深圳特产", desc: "丘大叔或林香柠，酸爽解腻，提神醒脑。", icon: "🍋", tag: "柠檬茶" },
+                { name: "一点点", category: "经典奶茶", desc: "波霸奶茶五分甜去冰，性价比之王。", icon: "🧋", tag: "奶茶" },
+                { name: "霸王茶姬", category: "国风茶饮", desc: "伯牙绝弦，清爽不腻，不影响晚上睡觉。", icon: "🍵", tag: "鲜奶茶" },
+                { name: "混果汁", category: "健康选择", desc: "慢榨果汁，感觉自己很健康（其实全是糖）。", icon: "🍹", tag: "果汁" },
+                { name: "冰豆沙", category: "传统糖水", desc: "赵记传承，绿豆沙加陈皮，清热解毒。", icon: "🍧", tag: "糖水" },
+                { name: "阿嬷手作", category: "排队之王", desc: "打米麻薯，虽然要排队一小时，但值得。", icon: "🍦", tag: "手作" },
+                { name: "茉莉奶白", category: "花香茶饮", desc: "满杯茉莉香，杯子好看，适合发朋友圈。", icon: "🌸", tag: "鲜奶茶" },
+                { name: "星巴克", category: "气氛组", desc: "冰美式消肿，主要为了去店里坐着吹空调。", icon: "🌟", tag: "咖啡" },
+                { name: "gaga鲜语", category: "轻食下午茶", desc: "水果茶配大盘沙拉，深圳名媛标配。", icon: "🥝", tag: "果茶" },
+                { name: "凉茶", category: "广东特饮", desc: "癍痧，苦得怀疑人生，但真的下火。", icon: "🪴", tag: "养生" },
+                { name: "Manner", category: "精品咖啡", desc: "自带杯减5元，咖啡师拉花水平很高。", icon: "☕", tag: "咖啡" },
+                { name: "蜜雪冰城", category: "雪王", desc: "柠檬水4块，冰淇淋2块，还要什么自行车。", icon: "👑", tag: "饮料" }
+            ]
+        };
+
+        const homeView = document.getElementById('home-view');
+        const resultView = document.getElementById('result-view');
+        const regenBtn = document.getElementById('regen-btn');
+        const timeEl = document.getElementById('current-time');
+        const greetingEl = document.getElementById('greeting');
+        
+        const resultIconEl = document.getElementById('result-icon'); 
+        const resultBgEmojiEl = document.getElementById('result-bg-emoji');
+        const cardHeaderEl = document.getElementById('card-header');
+
+        function updateTime() {
+            const now = new Date();
+            const hours = now.getHours();
+            timeEl.textContent = now.toLocaleTimeString('zh-CN', { hour: '2-digit', minute: '2-digit' });
+            
+            let greeting = "Hi, 饭点到了";
+            if (hours < 10) greeting = "早安, 吃早饭没";
+            else if (hours < 13) greeting = "中午吃点啥";
+            else if (hours < 17) greeting = "下午茶时间";
+            else if (hours < 20) greeting = "晚上吃顿好的";
+            else greeting = "深夜食堂";
+            
+            greetingEl.textContent = greeting;
+        }
+        setInterval(updateTime, 1000);
+        updateTime();
+
+        // 颜色配置
+        const typeStyles = {
+            work_meal: { bg: 'bg-gradient-to-br from-amber-100 to-orange-100', accent: 'bg-orange-400' },
+            feast: { bg: 'bg-gradient-to-br from-red-100 to-rose-100', accent: 'bg-red-500' },
+            drink: { bg: 'bg-gradient-to-br from-pink-100 to-rose-50', accent: 'bg-pink-400' }
+        };
+
+        function generate(type) {
+            const list = database[type];
+            const item = list[Math.floor(Math.random() * list.length)];
+
+            document.getElementById('result-category').textContent = item.category;
+            document.getElementById('result-name').textContent = item.name;
+            document.getElementById('result-desc').textContent = item.desc;
+            document.getElementById('result-tag').textContent = "#" + item.tag;
+            
+            const icon = item.icon || '🥘';
+            resultIconEl.textContent = icon;
+            resultBgEmojiEl.textContent = icon;
+
+            // 设置左侧视觉区颜色
+            const styles = typeStyles[type];
+            // 移除旧的背景类，应用新的
+            cardHeaderEl.className = `relative h-1/3 md:h-full md:w-5/12 flex items-center justify-center overflow-hidden transition-colors duration-500 ${styles.bg}`;
+
+            regenBtn.onclick = () => {
+                // 图标缩放反馈
+                resultIconEl.classList.add('scale-90');
+                setTimeout(() => resultIconEl.classList.remove('scale-90'), 150);
+                generate(type);
+            };
+            
+            homeView.classList.add('hidden');
+            resultView.classList.remove('hidden');
+            
+            // 重置动画
+            const card = resultView.querySelector('.animate-pop');
+            if(card) {
+                card.style.animation = 'none';
+                card.offsetHeight; 
+                card.style.animation = 'pop 0.4s cubic-bezier(0.34, 1.56, 0.64, 1) forwards';
+            }
+        }
+
+        function resetApp() {
+            resultView.classList.add('hidden');
+            homeView.classList.remove('hidden');
+        }
+
+    </script>
+</body>
+</html>
